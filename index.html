@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>藥到病除老友記 - 智能控制面板</title>
-    <!-- 引入 EmailJS SDK 用於靜態網頁發送電子郵件 -->
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <style>
         :root {
             --primary-bg: #f5f9fc;
@@ -557,34 +555,20 @@
             </div>
         </div>
 
-        <!-- IoT 家人聯網通知與電郵設定卡片 (新加入) -->
+        <!-- IoT 家人聯網通知與 Discord Webhook 設定卡片 -->
         <div class="med-card card-iot" id="card-iot">
             <div class="card-header">
-                <div class="card-title">📧 家人聯網電郵設定 (IoT)</div>
+                <div class="card-title">📢 Discord Webhook 聯網通知 (IoT)</div>
             </div>
             <div class="med-info" style="margin-bottom: 0;">
                 <div class="info-row">
-                    <span class="info-label">收件人電郵地址：</span>
-                    <input type="email" class="edit-input" id="family-email" placeholder="例如：family@example.com" onchange="saveSettings()">
+                    <span class="info-label">用家名字 (例如 爺爺/婆婆/爸爸)：</span>
+                    <input type="text" class="edit-input" id="elder-name" placeholder="例如：爺爺" style="width: 100%; max-width: 450px;" onchange="saveSettings()">
                 </div>
                 
-                <hr style="border: 0; border-top: 2px dashed #d7bde2; margin: 15px 0; width: 100%;">
-                
-                <div style="font-size: 1rem; color: #7f8c8d; line-height: 1.4; width: 100%;">
-                    <p style="margin: 5px 0; font-weight: bold; color: #8e44ad;">💡 EmailJS：</p>
-                    <div class="info-row" style="margin: 8px 0;">
-                        <span class="info-label" style="font-size: 0.95rem;">Public Key (公鑰)：</span>
-                        <input type="text" id="emailjs-public-key" placeholder="EmailJS Public Key" onchange="saveSettings()" style="padding: 6px; border-radius: 8px; border: 1px solid #ccc; font-size: 0.95rem; width: 180px;">
-                    </div>
-                    <div class="info-row" style="margin: 8px 0;">
-                        <span class="info-label" style="font-size: 0.95rem;">Service ID：</span>
-                        <input type="text" id="emailjs-service-id" placeholder="service_xxxxxxx" onchange="saveSettings()" style="padding: 6px; border-radius: 8px; border: 1px solid #ccc; font-size: 0.95rem; width: 180px;">
-                    </div>
-                    <div class="info-row" style="margin: 8px 0;">
-                        <span class="info-label" style="font-size: 0.95rem;">Template ID：</span>
-                        <input type="text" id="emailjs-template-id" placeholder="template_xxxxxxx" onchange="saveSettings()" style="padding: 6px; border-radius: 8px; border: 1px solid #ccc; font-size: 0.95rem; width: 180px;">
-                    </div>
-                    <p style="font-size: 0.9rem; color: #9b59b6; margin-top: 10px; font-weight: bold;">* 提示：若不填寫 EmailJS 密鑰，將自動啟用「模擬發信演示」。</p>
+                <div class="info-row" style="margin-top: 15px;">
+                    <span class="info-label">Discord Webhook 網址：</span>
+                    <input type="text" class="edit-input" id="discord-webhook-url" placeholder="請貼上 Discord Webhook 網址 (保持空白則使用模擬演示)" style="width: 100%; max-width: 450px;" onchange="saveSettings()">
                 </div>
             </div>
         </div>
@@ -592,7 +576,7 @@
     </div>
 
     <!-- 提示訊息橫條 -->
-    <div class="toast-msg" id="toast-msg">發送電郵中... 🚀</div>
+    <div class="toast-msg" id="toast-msg">發送訊息中... 🚀</div>
 
     <!-- 底部固定配對按鈕 -->
     <div class="bottom-nav">
@@ -718,8 +702,8 @@ window.onload = function() {
         if (receivedData === "PRESSED") {
             handleElderPraise();
         } else if (receivedData === "6") {
-            // 新加入：當收到數字 6 時，觸發發送 Email 通知
-            handleIotEmailNotification();
+            // 當收到數字 6 時，觸發發送 Discord Webhook 通知
+            handleIotDiscordNotification();
         }
     });
 
@@ -896,7 +880,8 @@ function handleElderPraise() {
 
     // 手機播歌慶祝（或 TTS 打氣）
     const synth = window.speechSynthesis;
-    const praiseText = "爺爺真乖！藥拿齊了，你今天真棒！藥盒現在會為你自動鎖上。";
+    const elderName = document.getElementById("elder-name").value.trim() || "老友記";
+    const praiseText = `${elderName}真乖！藥拿齊了，你今天真棒！藥盒現在會為你自動鎖上。`;
     const utterance = new SpeechSynthesisUtterance(praiseText);
     utterance.lang = 'zh-HK';
     synth.speak(utterance);
@@ -905,62 +890,58 @@ function handleElderPraise() {
     uBitManager.send("0");
 }
 
-// 8. 新加入：IoT 雲端電郵通知邏輯 (當收到 Micro:bit 傳送數字 6 時)
-function handleIotEmailNotification() {
-    const familyEmail = document.getElementById("family-email").value.trim();
+// 8. IoT 雲端通知邏輯 (當收到 Micro:bit 傳送數字 6 時，發送 Discord Webhook)
+function handleIotDiscordNotification() {
+    const webhookUrl = document.getElementById("discord-webhook-url").value.trim();
+    const elderName = document.getElementById("elder-name").value.trim() || "老友記";
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     
-    if (!familyEmail) {
-        showToast("⚠️ 未輸入收件人電郵，無法發送通知！");
+    if (!webhookUrl) {
+        showToast("⚠️ 未輸入 Webhook 網址，已進入模擬演示！");
+        simulateDiscord(elderName, timeStr);
         return;
     }
 
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const emailSubject = `【老友記健康守護】吃藥完成提醒`;
-    const emailBody = `爺爺已在 ${timeStr} 完成吃藥療程。藥盒已自動安全鎖上，請家人放心。`;
+    const messageContent = `🚨 **【老友記健康守護】**\n${elderName}已在 **${timeStr}** 完成吃藥療程。藥盒已自動安全鎖上，請家人放心。`;
 
-    const pubKey = document.getElementById("emailjs-public-key").value.trim();
-    const serviceId = document.getElementById("emailjs-service-id").value.trim();
-    const templateId = document.getElementById("emailjs-template-id").value.trim();
+    showToast("🚀 正在發送 Discord IoT 通知...");
 
-    showToast("🚀 正在發送 IoT 家人通知電郵...");
-
-    // 檢查是否提供了 EmailJS 的設定
-    if (pubKey && serviceId && templateId) {
-        // 使用真實的 EmailJS 服務發送
-        emailjs.init(pubKey);
-        
-        // 傳遞參數給 EmailJS 模板
-        const templateParams = {
-            to_email: familyEmail,
-            time: timeStr,
-            message: emailBody
-        };
-
-        emailjs.send(serviceId, templateId, templateParams)
-            .then(function(response) {
-                console.log('SUCCESS!', response.status, response.text);
-                showToast(`📧 真實電郵已成功發送至：${familyEmail}`);
-            }, function(error) {
-                console.error('FAILED...', error);
-                showToast("❌ 真實發信失敗，已自動啟用模擬演示模式！");
-                simulateEmail(familyEmail, timeStr, emailBody);
-            });
-    } else {
-        // 未填寫 SDK 資料，啟用「模擬發信演示模式」
-        setTimeout(() => {
-            simulateEmail(familyEmail, timeStr, emailBody);
-        }, 1500);
-    }
+    // 使用原生的 fetch 送出 POST 請求到 Discord Webhook
+    fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            content: messageContent
+        })
+    })
+    .then(response => {
+        if (response.ok) {
+            showToast(`💬 Discord 通知已成功發送！`);
+            playTtsSpeech(elderName, timeStr);
+        } else {
+            throw new Error("HTTP 狀態碼：" + response.status);
+        }
+    })
+    .catch(error => {
+        console.error('發送失敗:', error);
+        showToast("❌ 發送失敗，已自動啟用模擬演示模式！");
+        simulateDiscord(elderName, timeStr);
+    });
 }
 
-// 模擬發送電郵（現場演示後備機制）
-function simulateEmail(email, time, content) {
-    showToast(`✨【IoT 模擬發送成功】已發送通知至：${email}！`);
-    
-    // 透過語音合成提醒評審，增加說服力
+// 模擬發送 Discord 訊息（現場演示後備語音機制）
+function simulateDiscord(elderName, time) {
+    showToast(`✨【IoT 模擬發送成功】已模擬傳送通知至 Discord！`);
+    playTtsSpeech(elderName, time);
+}
+
+// 語音廣播提示
+function playTtsSpeech(elderName, time) {
     const synth = window.speechSynthesis;
-    const utterance = new SpeechSynthesisUtterance(`物聯網系統已在${time}自動發送通知電郵給家人。`);
+    const utterance = new SpeechSynthesisUtterance(`物聯網系統已發送通知，${elderName}已在${time}完成吃藥療程。`);
     utterance.lang = 'zh-HK';
     synth.speak(utterance);
 }
@@ -1029,18 +1010,17 @@ function saveSettings() {
         };
     }
     
-    // 保存 IoT 新加入欄位
+    // 保存 IoT 新加入欄位 (Discord Webhook 網址與用家名字)
     settings["iot"] = {
-        familyEmail: document.getElementById("family-email").value,
-        publicKey: document.getElementById("emailjs-public-key").value,
-        serviceId: document.getElementById("emailjs-service-id").value,
-        templateId: document.getElementById("emailjs-template-id").value
+        discordWebhookUrl: document.getElementById("discord-webhook-url").value,
+        elderName: document.getElementById("elder-name").value
     };
 
     localStorage.setItem("medBoxSettings", JSON.stringify(settings));
     localStorage.setItem("medBoxVoices", JSON.stringify(voiceRecords));
 }
 
+// 載入設定
 function loadSettings() {
     const localData = localStorage.getItem("medBoxSettings");
     const localVoices = localStorage.getItem("medBoxVoices");
@@ -1076,11 +1056,17 @@ function loadSettings() {
 
         // 載入 IoT 設定
         if (settings["iot"]) {
-            document.getElementById("family-email").value = settings["iot"].familyEmail || "";
-            document.getElementById("emailjs-public-key").value = settings["iot"].publicKey || "";
-            document.getElementById("emailjs-service-id").value = settings["iot"].serviceId || "";
-            document.getElementById("emailjs-template-id").value = settings["iot"].templateId || "";
+            document.getElementById("discord-webhook-url").value = settings["iot"].discordWebhookUrl || "";
+            document.getElementById("elder-name").value = settings["iot"].elderName || "爺爺";
+        } else {
+            // 預設為空白
+            document.getElementById("discord-webhook-url").value = "";
+            document.getElementById("elder-name").value = "爺爺";
         }
+    } else {
+        // 第一次開網頁，預設為空白
+        document.getElementById("discord-webhook-url").value = "";
+        document.getElementById("elder-name").value = "爺爺";
     }
 
     if (localVoices) {
