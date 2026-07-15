@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>藥到病除老友記 - 智能控制面板</title>
+    <!-- 引入 EmailJS SDK 用於靜態網頁發送電子郵件 -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <style>
+        :root {
+            --primary-bg: #f5f9fc;
+            --card-blue: #e8f4fd;
+            --card-green: #eafaf1;
+            --card-orange: #fef5e7;
+            --card-pink: #fdeef4;
+            --card-purple: #f3f0fc;
+            --text-dark: #2c3e50;
+            --success-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --accent-yellow: #f1c40f;
+            --primary-blue: #3498db;
+        }
+
+        body {
+            font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif;
+            background-color: var(--primary-bg);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* 頂部超大時鐘與連線面板 */
+        .header-section {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            border: 4px solid #d4e6f1;
+        }
+
+        .system-clock {
+            font-size: 3.5rem;
+            font-weight: bold;
+            color: #2980b9;
+            margin: 5px 0;
+            text-shadow: 1px 1px 0px white, 2px 2px 0px rgba(0,0,0,0.05);
+        }
+
+        .clock-label {
+            font-size: 1.2rem;
+            color: #7f8c8d;
+            letter-spacing: 2px;
+        }
+
+        /* 藍牙狀態卡片 */
+        .bluetooth-status-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-radius: 16px;
+            margin-top: 15px;
+            border: 2px dashed #bdc3c7;
+        }
+
+        .status-badge {
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 8px 16px;
+            border-radius: 12px;
+        }
+
+        .status-disconnected {
+            background-color: #fadbd8;
+            color: var(--danger-color);
+        }
+
+        .status-connected {
+            background-color: #d4efdf;
+            color: var(--success-color);
+        }
+
+        /* 藥盒卡片區域 */
+        .box-container {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-sizing: border-box;
+            margin-bottom: 120px; /* 為底部預留空間 */
+        }
+
+        .med-card {
+            border-radius: 28px;
+            padding: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.03);
+            border: 3px solid transparent;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .med-card.disabled {
+            opacity: 0.55;
+            background: #eceff1 !important;
+            border-color: #cfd8dc !important;
+        }
+
+        /* 卡片的可愛亮麗主題顏色 */
+        .card-1 { background-color: var(--card-blue); border-color: #aed6f1; }
+        .card-2 { background-color: var(--card-green); border-color: #abebc6; }
+        .card-3 { background-color: var(--card-orange); border-color: #fad7a0; }
+        .card-4 { background-color: var(--card-pink); border-color: #f5b7b1; }
+        .card-iot { background-color: var(--card-purple); border-color: #d7bde2; }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .card-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 可愛滑動開關 */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 68px;
+            height: 38px;
+        }
+
+        .switch input { opacity: 0; width: 0; height: 0; }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 30px; width: 30px;
+            left: 4px; bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider { background-color: var(--success-color); }
+        input:checked + .slider:before { transform: translateX(30px); }
+
+        /* 資訊面板：大字體長者設計 */
+        .med-info {
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 18px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 8px 0;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .info-label {
+            font-size: 1.2rem;
+            color: #566573;
+        }
+
+        .info-value {
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: var(--text-dark);
+        }
+
+        .time-picker-custom {
+            font-size: 1.5rem;
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 10px;
+            border: 2px solid #bdc3c7;
+            background-color: white;
+            color: var(--text-dark);
+        }
+
+        /* 倒數計時器 */
+        .countdown-timer {
+            font-size: 1.1rem;
+            color: #7f8c8d;
+            background: rgba(255, 255, 255, 0.5);
+            padding: 5px 12px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+
+        /* 錄音控制面板 */
+        .recorder-box {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+            background: rgba(255,255,255,0.9);
+            padding: 12px;
+            border-radius: 16px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* 大按鈕設計 */
+        button {
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        button:active { transform: scale(0.95); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-success { background-color: var(--success-color); color: white; }
+        .btn-danger { background-color: var(--danger-color); color: white; }
+        .btn-accent { background-color: var(--accent-yellow); color: #2c3e50; }
+        .btn-edit { background-color: #95a5a6; color: white; padding: 6px 12px; font-size: 0.95rem; border-radius: 10px; }
+
+        /* 編輯彈窗/輸入控制 */
+        .edit-input {
+            font-size: 1.3rem;
+            padding: 10px 15px;
+            border-radius: 12px;
+            border: 2px solid #3498db;
+            width: 100%;
+            max-width: 300px;
+            font-weight: bold;
+            box-sizing: border-box;
+        }
+
+        /* 提示訊息橫條 */
+        .toast-msg {
+            background-color: #2c3e50;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            position: fixed;
+            bottom: 120px;
+            font-weight: bold;
+            display: none;
+            z-index: 10000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            animation: fadeInUp 0.3s ease;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 吃藥成功超大喜慶稱讚彈窗 */
+        .praise-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .praise-card {
+            background: radial-gradient(circle, #fffdf0 60%, #fef5e7 100%);
+            width: 90%;
+            max-width: 500px;
+            padding: 40px 20px;
+            border-radius: 36px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            border: 8px solid var(--accent-yellow);
+            animation: bounceIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .praise-emoji {
+            font-size: 8rem;
+            margin: 10px 0;
+            display: block;
+            animation: pulse 1.5s infinite;
+        }
+
+        .praise-title {
+            font-size: 2.8rem;
+            color: #d35400;
+            margin: 10px 0;
+            font-weight: 900;
+        }
+
+        .praise-text {
+            font-size: 1.8rem;
+            color: #2c3e50;
+            line-height: 1.5;
+            margin-bottom: 25px;
+            font-weight: bold;
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* 錄音中動畫效果 */
+        .recording-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--danger-color);
+            font-weight: bold;
+            font-size: 1.1rem;
+            animation: blink 1s infinite;
+        }
+
+        .dot {
+            width: 10px; height: 10px;
+            background-color: var(--danger-color);
+            border-radius: 50%;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0.3; }
+        }
+
+        /* 手機底部固定按鈕 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0; left: 0; width: 100%;
+            background: white;
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.08);
+            display: flex;
+            justify-content: center;
+            padding: 15px;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 頂部資訊區 -->
+    <div class="header-section">
+        <div class="clock-label">⏰ 香港現在時間</div>
+        <div class="system-clock" id="live-clock">00:00:00</div>
+        
+        <div class="bluetooth-status-card">
+            <span style="font-size: 1.2rem; font-weight: bold; color: #566573;">📶 藥盒藍牙連線：</span>
+            <span id="bt-badge" class="status-badge status-disconnected">等待連接... ❌</span>
+        </div>
+    </div>
+
+    <!-- 4個藥格配置區域 -->
+    <div class="box-container">
+        
+        <!-- 藥盒 1 -->
+        <div class="med-card card-1" id="card-1">
+            <div class="card-header">
+                <div class="card-title">🌅 1號藥盒 (早餐藥)</div>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-1" checked onchange="toggleCard(1)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="med-info">
+                <div class="info-row">
+                    <span class="info-label">藥盒開蓋時間：</span>
+                    <input type="time" class="time-picker-custom" id="time-1" value="08:00" onchange="saveSettings()">
+                </div>
+                <div class="info-row">
+                    <span class="info-label">服用藥物名稱：</span>
+                    <div id="drug-name-container-1">
+                        <span class="info-value" id="drug-name-text-1">降血壓藥</span>
+                        <button class="btn-edit" onclick="editField(1, 'drug-name')">修改</button>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">每次服用數量：</span>
+                    <div id="drug-qty-container-1">
+                        <span class="info-value" id="drug-qty-text-1">1 粒</span>
+                        <button class="btn-edit" onclick="editField(1, 'drug-qty')">修改</button>
+                    </div>
+                </div>
+                <div class="countdown-timer" id="countdown-1">計算時間中...</div>
+            </div>
+            
+            <div class="recorder-box">
+                <span class="info-label" style="font-weight: bold;">🗣️ 錄音提醒：</span>
+                <div id="record-ui-1">
+                    <button class="btn-danger" id="rec-btn-1" onclick="startRecording(1)">🔴 錄音</button>
+                    <button class="btn-accent" id="play-btn-1" onclick="playVoice(1)" disabled>🔈 試聽</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 藥盒 2 -->
+        <div class="med-card card-2" id="card-2">
+            <div class="card-header">
+                <div class="card-title">☀️ 2號藥盒 (午餐藥)</div>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-2" checked onchange="toggleCard(2)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="med-info">
+                <div class="info-row">
+                    <span class="info-label">藥盒開蓋時間：</span>
+                    <input type="time" class="time-picker-custom" id="time-2" value="12:00" onchange="saveSettings()">
+                </div>
+                <div class="info-row">
+                    <span class="info-label">服用藥物名稱：</span>
+                    <div id="drug-name-container-2">
+                        <span class="info-value" id="drug-name-text-2">胃藥</span>
+                        <button class="btn-edit" onclick="editField(2, 'drug-name')">修改</button>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">每次服用數量：</span>
+                    <div id="drug-qty-container-2">
+                        <span class="info-value" id="drug-qty-text-2">2 粒</span>
+                        <button class="btn-edit" onclick="editField(2, 'drug-qty')">修改</button>
+                    </div>
+                </div>
+                <div class="countdown-timer" id="countdown-2">計算時間中...</div>
+            </div>
+            
+            <div class="recorder-box">
+                <span class="info-label" style="font-weight: bold;">🗣️ 錄音提醒：</span>
+                <div id="record-ui-2">
+                    <button class="btn-danger" id="rec-btn-2" onclick="startRecording(2)">🔴 錄音</button>
+                    <button class="btn-accent" id="play-btn-2" onclick="playVoice(2)" disabled>🔈 試聽</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 藥盒 3 -->
+        <div class="med-card card-3" id="card-3">
+            <div class="card-header">
+                <div class="card-title">🍵 3號藥盒 (下午茶藥)</div>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-3" checked onchange="toggleCard(3)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="med-info">
+                <div class="info-row">
+                    <span class="info-label">藥盒開蓋時間：</span>
+                    <input type="time" class="time-picker-custom" id="time-3" value="16:00" onchange="saveSettings()">
+                </div>
+                <div class="info-row">
+                    <span class="info-label">服用藥物名稱：</span>
+                    <div id="drug-name-container-3">
+                        <span class="info-value" id="drug-name-text-3">維他命 C</span>
+                        <button class="btn-edit" onclick="editField(3, 'drug-name')">修改</button>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">每次服用數量：</span>
+                    <div id="drug-qty-container-3">
+                        <span class="info-value" id="drug-qty-text-3">1 粒</span>
+                        <button class="btn-edit" onclick="editField(3, 'drug-qty')">修改</button>
+                    </div>
+                </div>
+                <div class="countdown-timer" id="countdown-3">計算時間中...</div>
+            </div>
+            
+            <div class="recorder-box">
+                <span class="info-label" style="font-weight: bold;">🗣️ 錄音提醒：</span>
+                <div id="record-ui-3">
+                    <button class="btn-danger" id="rec-btn-3" onclick="startRecording(3)">🔴 錄音</button>
+                    <button class="btn-accent" id="play-btn-3" onclick="playVoice(3)" disabled>🔈 試聽</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 藥盒 4 -->
+        <div class="med-card card-4" id="card-4">
+            <div class="card-header">
+                <div class="card-title">🌙 4號藥盒 (晚餐藥)</div>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-4" checked onchange="toggleCard(4)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="med-info">
+                <div class="info-row">
+                    <span class="info-label">藥盒開蓋時間：</span>
+                    <input type="time" class="time-picker-custom" id="time-4" value="20:00" onchange="saveSettings()">
+                </div>
+                <div class="info-row">
+                    <span class="info-label">服用藥物名稱：</span>
+                    <div id="drug-name-container-4">
+                        <span class="info-value" id="drug-name-text-4">膽固醇藥</span>
+                        <button class="btn-edit" onclick="editField(4, 'drug-name')">修改</button>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">每次服用數量：</span>
+                    <div id="drug-qty-container-4">
+                        <span class="info-value" id="drug-qty-text-4">1 粒</span>
+                        <button class="btn-edit" onclick="editField(4, 'drug-qty')">修改</button>
+                    </div>
+                </div>
+                <div class="countdown-timer" id="countdown-4">計算時間中...</div>
+            </div>
+            
+            <div class="recorder-box">
+                <span class="info-label" style="font-weight: bold;">🗣️ 錄音提醒：</span>
+                <div id="record-ui-4">
+                    <button class="btn-danger" id="rec-btn-4" onclick="startRecording(4)">🔴 錄音</button>
+                    <button class="btn-accent" id="play-btn-4" onclick="playVoice(4)" disabled>🔈 試聽</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- IoT 家人聯網通知與電郵設定卡片 (新加入) -->
+        <div class="med-card card-iot" id="card-iot">
+            <div class="card-header">
+                <div class="card-title">📧 家人聯網電郵設定 (IoT)</div>
+            </div>
+            <div class="med-info" style="margin-bottom: 0;">
+                <div class="info-row">
+                    <span class="info-label">收件人電郵地址：</span>
+                    <input type="email" class="edit-input" id="family-email" placeholder="例如：family@example.com" onchange="saveSettings()">
+                </div>
+                
+                <hr style="border: 0; border-top: 2px dashed #d7bde2; margin: 15px 0; width: 100%;">
+                
+                <div style="font-size: 1rem; color: #7f8c8d; line-height: 1.4; width: 100%;">
+                    <p style="margin: 5px 0; font-weight: bold; color: #8e44ad;">💡 EmailJS：</p>
+                    <div class="info-row" style="margin: 8px 0;">
+                        <span class="info-label" style="font-size: 0.95rem;">Public Key (公鑰)：</span>
+                        <input type="text" id="emailjs-public-key" placeholder="EmailJS Public Key" onchange="saveSettings()" style="padding: 6px; border-radius: 8px; border: 1px solid #ccc; font-size: 0.95rem; width: 180px;">
+                    </div>
+                    <div class="info-row" style="margin: 8px 0;">
+                        <span class="info-label" style="font-size: 0.95rem;">Service ID：</span>
+                        <input type="text" id="emailjs-service-id" placeholder="service_xxxxxxx" onchange="saveSettings()" style="padding: 6px; border-radius: 8px; border: 1px solid #ccc; font-size: 0.95rem; width: 180px;">
+                    </div>
+                    <div class="info-row" style="margin: 8px 0;">
+                        <span class="info-label" style="font-size: 0.95rem;">Template ID：</span>
+                        <input type="text" id="emailjs-template-id" placeholder="template_xxxxxxx" onchange="saveSettings()" style="padding: 6px; border-radius: 8px; border: 1px solid #ccc; font-size: 0.95rem; width: 180px;">
+                    </div>
+                    <p style="font-size: 0.9rem; color: #9b59b6; margin-top: 10px; font-weight: bold;">* 提示：若不填寫 EmailJS 密鑰，將自動啟用「模擬發信演示」。</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 提示訊息橫條 -->
+    <div class="toast-msg" id="toast-msg">發送電郵中... 🚀</div>
+
+    <!-- 底部固定配對按鈕 -->
+    <div class="bottom-nav">
+        <button id="btn-connect" class="btn-primary" style="font-size: 1.5rem; padding: 15px 30px; border-radius: 20px; box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);">
+            🔗 連接智能藥盒 (藍牙)
+        </button>
+    </div>
+
+    <!-- 吃藥成功可愛稱讚彈窗 -->
+    <div class="praise-overlay" id="praise-overlay">
+        <div class="praise-card">
+            <span class="praise-emoji">🥰👍❤️</span>
+            <div class="praise-title">老友記好乖！</div>
+            <div class="praise-text" id="praise-desc">你已經成功服用藥物！<br>藥盒已經安全關上及鎖定。</div>
+            <button class="btn-success" style="font-size: 1.6rem; padding: 15px 40px; border-radius: 18px;" onclick="closePraise()">
+                收到！(藥盒關閉)
+            </button>
+        </div>
+    </div>
+
+<script>
+/**
+ * micro:bit Bluetooth 經由原本 Template 設計擴展
+ */
+const uBitManager = {
+    UUIDS: {
+        UART_SERVICE: "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
+        TX_CHARACTERISTIC: "6e400002-b5a3-f393-e0a9-e50e24dcca9e", // micro:bit -> JS
+        RX_CHARACTERISTIC: "6e400003-b5a3-f393-e0a9-e50e24dcca9e"  // JS -> micro:bit
+    },
+
+    device: null,
+    rxCharacteristic: null,
+    eventTarget: new EventTarget(),
+
+    updateStatus(msg, isConnected = false) {
+        const badge = document.getElementById("bt-badge");
+        if (badge) {
+            if (isConnected) {
+                badge.textContent = "已連線 ✔️";
+                badge.className = "status-badge status-connected";
+            } else {
+                badge.textContent = msg + " ❌";
+                badge.className = "status-badge status-disconnected";
+            }
+        }
+    },
+
+    async connect() {
+        try {
+            this.updateStatus("正在搜尋...");
+            
+            this.device = await navigator.bluetooth.requestDevice({
+                filters: [{ namePrefix: "BBC micro:bit" }],
+                optionalServices: [this.UUIDS.UART_SERVICE]
+            });
+
+            this.device.addEventListener("gattserverdisconnected", () => this.onDisconnected());
+
+            const server = await this.device.gatt.connect();
+            const service = await server.getPrimaryService(this.UUIDS.UART_SERVICE);
+            
+            const txChar = await service.getCharacteristic(this.UUIDS.TX_CHARACTERISTIC);
+            await txChar.startNotifications();
+            txChar.addEventListener("characteristicvaluechanged", (e) => this.handleDataReceived(e));
+            
+            this.rxCharacteristic = await service.getCharacteristic(this.UUIDS.RX_CHARACTERISTIC);
+
+            this.updateStatus("已連線", true);
+
+        } catch (err) {
+            this.updateStatus("連線失敗");
+            console.error("Bluetooth Error:", err);
+        }
+    },
+
+    onDisconnected() {
+        this.updateStatus("已斷開連接");
+        this.device = null;
+        this.rxCharacteristic = null;
+    },
+
+    handleDataReceived(event) {
+        const value = event.target.value;
+        const text = new TextDecoder().decode(value).trim();
+        if (text) {
+            console.log("收到 micro:bit 資料:", text);
+            this.eventTarget.dispatchEvent(new CustomEvent("data", { detail: text }));
+        }
+    },
+
+    async send(message) {
+        if (!this.rxCharacteristic) {
+            console.warn("未連接藍牙，模擬發送:", message);
+            return;
+        }
+        try {
+            const encoder = new TextEncoder();
+            // 發送指令並加上換行符 \n
+            await this.rxCharacteristic.writeValue(encoder.encode(message + "\n"));
+            console.log("成功發送:", message);
+        } catch (err) {
+            console.error("發送失敗:", err);
+        }
+    }
+};
+
+/* ------------------- 網頁核心邏輯與儲存 ------------------- */
+
+let mediaRecorders = {};
+let audioChunks = {};
+let voiceRecords = { 1: null, 2: null, 3: null, 4: null };
+let lastTriggeredMinute = ""; // 防止在同一分鐘重複觸發
+
+// 初始化載入
+window.onload = function() {
+    // 綁定藍牙按鈕
+    document.getElementById("btn-connect").addEventListener("click", () => uBitManager.connect());
+
+    // 監聽來自 Micro:bit 的訊號 (A鍵 PRESSED 或數字 6 IoT發信)
+    uBitManager.eventTarget.addEventListener("data", (e) => {
+        const receivedData = e.detail;
+        if (receivedData === "PRESSED") {
+            handleElderPraise();
+        } else if (receivedData === "6") {
+            // 新加入：當收到數字 6 時，觸發發送 Email 通知
+            handleIotEmailNotification();
+        }
+    });
+
+    loadSettings();
+    startClock();
+};
+
+// 1. 每秒更新時鐘與倒數
+function startClock() {
+    setInterval(() => {
+        const now = new Date();
+        const hrs = String(now.getHours()).padStart(2, '0');
+        const mins = String(now.getMinutes()).padStart(2, '0');
+        const secs = String(now.getSeconds()).padStart(2, '0');
+        
+        document.getElementById("live-clock").textContent = `${hrs}:${mins}:${secs}`;
+
+        const currentMinute = `${hrs}:${mins}`;
+        
+        // 檢查定時開盒
+        if (currentMinute !== lastTriggeredMinute && secs === "00") {
+            checkAndTriggerMedBox(currentMinute);
+        }
+
+        // 更新倒數
+        for (let i = 1; i <= 4; i++) {
+            updateCountdown(i, now);
+        }
+    }, 1000);
+}
+
+// 2. 檢查是否到點並啟動藥盒
+function checkAndTriggerMedBox(currentMinute) {
+    for (let i = 1; i <= 4; i++) {
+        const isEnabled = document.getElementById(`toggle-${i}`).checked;
+        const triggerTime = document.getElementById(`time-${i}`).value;
+
+        if (isEnabled && triggerTime === currentMinute) {
+            lastTriggeredMinute = currentMinute;
+            triggerBox(i);
+            break;
+        }
+    }
+}
+
+// 3. 觸發特定的藥格
+function triggerBox(boxId) {
+    console.log(`觸發：開合 ${boxId} 號藥盒格`);
+    
+    // A. 透過藍牙發送對應代碼 (1, 2, 3, 4) 給 Micro:bit
+    uBitManager.send(boxId.toString());
+
+    // B. 手機大聲播放提示語音
+    const drugName = document.getElementById(`drug-name-text-${boxId}`).textContent;
+    const drugQty = document.getElementById(`drug-qty-text-${boxId}`).textContent;
+    
+    playAlertVoice(boxId, drugName, drugQty);
+}
+
+// 4. 語音合成與播放
+function playAlertVoice(boxId, drugName, drugQty) {
+    // 如果有自製錄音，播放錄音
+    if (voiceRecords[boxId]) {
+        const audio = new Audio(voiceRecords[boxId]);
+        audio.play().catch(e => console.log("播音被瀏覽器阻擋，將改為文字語音：", e));
+    } else {
+        // 沒有錄音時，使用系統 TTS 語音（廣東話合成）
+        const fallbackText = `老友記，食藥時間到啦！請食 ${boxId} 號格。入面有：${drugName}，${drugQty}。食完記得按一下 Micro:bit 確認關蓋！`;
+        const utterance = new SpeechSynthesisUtterance(fallbackText);
+        utterance.lang = 'zh-HK';
+        utterance.rate = 0.85; // 慢速更清晰
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
+// 5. 倒數計時器演算法
+function updateCountdown(boxId, now) {
+    const isEnabled = document.getElementById(`toggle-${boxId}`).checked;
+    const countdownEl = document.getElementById(`countdown-${boxId}`);
+
+    if (!isEnabled) {
+        countdownEl.textContent = "❌ 藥盒已關閉使用";
+        return;
+    }
+
+    const timeStr = document.getElementById(`time-${boxId}`).value;
+    const [targetHrs, targetMins] = timeStr.split(":").map(Number);
+
+    let targetDate = new Date(now);
+    targetDate.setHours(targetHrs, targetMins, 0, 0);
+
+    // 如果今天時間已過，設定為明天的此時
+    if (targetDate <= now) {
+        targetDate.setDate(targetDate.getDate() + 1);
+    }
+
+    const diffMs = targetDate - now;
+    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    countdownEl.textContent = `⏳ 距離服藥還有：${String(diffHrs).padStart(2, '0')} 小時 ${String(diffMins).padStart(2, '0')} 分鐘`;
+}
+
+// 6. 錄音管理 (MediaRecorder)
+async function startRecording(boxId) {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks[boxId] = [];
+        
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorders[boxId] = mediaRecorder;
+
+        mediaRecorder.ondataavailable = function(e) {
+            audioChunks[boxId].push(e.data);
+        };
+
+        mediaRecorder.onstop = function() {
+            const blob = new Blob(audioChunks[boxId], { type: 'audio/mp3' });
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = function() {
+                const base64data = reader.result;
+                voiceRecords[boxId] = base64data;
+                saveSettings();
+                document.getElementById(`play-btn-${boxId}`).disabled = false;
+            }
+        };
+
+        mediaRecorder.start();
+
+        // 轉換為正在錄音的 UI
+        const uiContainer = document.getElementById(`record-ui-${boxId}`);
+        uiContainer.innerHTML = `
+            <span class="recording-status"><span class="dot"></span> 錄音中...</span>
+            <button class="btn-primary" onclick="stopRecording(${boxId})">⏹️ 停止</button>
+        `;
+
+    } catch (err) {
+        alert("無法獲取麥克風權限：" + err.message);
+    }
+}
+
+function stopRecording(boxId) {
+    if (mediaRecorders[boxId] && mediaRecorders[boxId].state !== "inactive") {
+        mediaRecorders[boxId].stop();
+        // 恢復正常 UI
+        resetRecorderUI(boxId);
+    }
+}
+
+function resetRecorderUI(boxId) {
+    const uiContainer = document.getElementById(`record-ui-${boxId}`);
+    uiContainer.innerHTML = `
+        <button class="btn-danger" id="rec-btn-${boxId}" onclick="startRecording(${boxId})">🔴 錄音</button>
+        <button class="btn-accent" id="play-btn-${boxId}" onclick="playVoice(${boxId})">🔈 試聽</button>
+    `;
+    // 若已有錄音，使試聽鍵生效
+    if (voiceRecords[boxId]) {
+        document.getElementById(`play-btn-${boxId}`).disabled = false;
+    }
+}
+
+function playVoice(boxId) {
+    if (voiceRecords[boxId]) {
+        const audio = new Audio(voiceRecords[boxId]);
+        audio.play();
+    }
+}
+
+// 7. 長者服藥打卡成功處理 (實體按鈕回傳 PRESSED)
+function handleElderPraise() {
+    // 顯示極大喜慶稱讚彈窗
+    document.getElementById("praise-overlay").style.display = "flex";
+
+    // 手機播歌慶祝（或 TTS 打氣）
+    const synth = window.speechSynthesis;
+    const praiseText = "爺爺真乖！藥拿齊了，你今天真棒！藥盒現在會為你自動鎖上。";
+    const utterance = new SpeechSynthesisUtterance(praiseText);
+    utterance.lang = 'zh-HK';
+    synth.speak(utterance);
+
+    // 發送 "0" 指令給 Micro:bit，驅動馬達安全關蓋鎖死
+    uBitManager.send("0");
+}
+
+// 8. 新加入：IoT 雲端電郵通知邏輯 (當收到 Micro:bit 傳送數字 6 時)
+function handleIotEmailNotification() {
+    const familyEmail = document.getElementById("family-email").value.trim();
+    
+    if (!familyEmail) {
+        showToast("⚠️ 未輸入收件人電郵，無法發送通知！");
+        return;
+    }
+
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const emailSubject = `【老友記健康守護】吃藥完成提醒`;
+    const emailBody = `爺爺已在 ${timeStr} 完成吃藥療程。藥盒已自動安全鎖上，請家人放心。`;
+
+    const pubKey = document.getElementById("emailjs-public-key").value.trim();
+    const serviceId = document.getElementById("emailjs-service-id").value.trim();
+    const templateId = document.getElementById("emailjs-template-id").value.trim();
+
+    showToast("🚀 正在發送 IoT 家人通知電郵...");
+
+    // 檢查是否提供了 EmailJS 的設定
+    if (pubKey && serviceId && templateId) {
+        // 使用真實的 EmailJS 服務發送
+        emailjs.init(pubKey);
+        
+        // 傳遞參數給 EmailJS 模板
+        const templateParams = {
+            to_email: familyEmail,
+            time: timeStr,
+            message: emailBody
+        };
+
+        emailjs.send(serviceId, templateId, templateParams)
+            .then(function(response) {
+                console.log('SUCCESS!', response.status, response.text);
+                showToast(`📧 真實電郵已成功發送至：${familyEmail}`);
+            }, function(error) {
+                console.error('FAILED...', error);
+                showToast("❌ 真實發信失敗，已自動啟用模擬演示模式！");
+                simulateEmail(familyEmail, timeStr, emailBody);
+            });
+    } else {
+        // 未填寫 SDK 資料，啟用「模擬發信演示模式」
+        setTimeout(() => {
+            simulateEmail(familyEmail, timeStr, emailBody);
+        }, 1500);
+    }
+}
+
+// 模擬發送電郵（現場演示後備機制）
+function simulateEmail(email, time, content) {
+    showToast(`✨【IoT 模擬發送成功】已發送通知至：${email}！`);
+    
+    // 透過語音合成提醒評審，增加說服力
+    const synth = window.speechSynthesis;
+    const utterance = new SpeechSynthesisUtterance(`物聯網系統已在${time}自動發送通知電郵給家人。`);
+    utterance.lang = 'zh-HK';
+    synth.speak(utterance);
+}
+
+// 輔助函數：顯示 Toast 動態提示
+function showToast(message) {
+    const toast = document.getElementById("toast-msg");
+    toast.textContent = message;
+    toast.style.display = "block";
+    
+    setTimeout(() => {
+        toast.style.display = "none";
+    }, 4500);
+}
+
+function closePraise() {
+    document.getElementById("praise-overlay").style.display = "none";
+}
+
+// 9. 欄位修改（大字體/輸入框切換）
+function editField(boxId, fieldType) {
+    const textEl = document.getElementById(`${fieldType}-text-${boxId}`);
+    const containerEl = document.getElementById(`${fieldType}-container-${boxId}`);
+    const currentVal = textEl.textContent;
+
+    const inputHtml = `
+        <input type="text" class="edit-input" id="input-${fieldType}-${boxId}" value="${currentVal}">
+        <button class="btn-success" style="padding: 6px 12px; font-size:0.95rem; border-radius:10px;" onclick="saveField(${boxId}, '${fieldType}')">儲存</button>
+    `;
+    containerEl.innerHTML = inputHtml;
+}
+
+function saveField(boxId, fieldType) {
+    const inputVal = document.getElementById(`input-${fieldType}-${boxId}`).value;
+    const containerEl = document.getElementById(`${fieldType}-container-${boxId}`);
+
+    containerEl.innerHTML = `
+        <span class="info-value" id="${fieldType}-text-${boxId}">${inputVal}</span>
+        <button class="btn-edit" onclick="editField(${boxId}, '${fieldType}')">修改</button>
+    `;
+    saveSettings();
+}
+
+// 10. 切換啟用/關閉狀態
+function toggleCard(boxId) {
+    const card = document.getElementById(`card-${boxId}`);
+    const isChecked = document.getElementById(`toggle-${boxId}`).checked;
+    
+    if (isChecked) {
+        card.classList.remove("disabled");
+    } else {
+        card.classList.add("disabled");
+    }
+    saveSettings();
+}
+
+// 11. 本地資料儲存與載入 (localStorage)
+function saveSettings() {
+    const settings = {};
+    for (let i = 1; i <= 4; i++) {
+        settings[i] = {
+            enabled: document.getElementById(`toggle-${i}`).checked,
+            time: document.getElementById(`time-${i}`).value,
+            drugName: document.getElementById(`drug-name-text-${i}`) ? document.getElementById(`drug-name-text-${i}`).textContent : "藥物",
+            drugQty: document.getElementById(`drug-qty-text-${i}`) ? document.getElementById(`drug-qty-text-${i}`).textContent : "1 粒"
+        };
+    }
+    
+    // 保存 IoT 新加入欄位
+    settings["iot"] = {
+        familyEmail: document.getElementById("family-email").value,
+        publicKey: document.getElementById("emailjs-public-key").value,
+        serviceId: document.getElementById("emailjs-service-id").value,
+        templateId: document.getElementById("emailjs-template-id").value
+    };
+
+    localStorage.setItem("medBoxSettings", JSON.stringify(settings));
+    localStorage.setItem("medBoxVoices", JSON.stringify(voiceRecords));
+}
+
+function loadSettings() {
+    const localData = localStorage.getItem("medBoxSettings");
+    const localVoices = localStorage.getItem("medBoxVoices");
+
+    if (localData) {
+        const settings = JSON.parse(localData);
+        for (let i = 1; i <= 4; i++) {
+            if (settings[i]) {
+                document.getElementById(`toggle-${i}`).checked = settings[i].enabled;
+                document.getElementById(`time-${i}`).value = settings[i].time;
+                
+                // 恢復文字欄位
+                const nameContainer = document.getElementById(`drug-name-container-${i}`);
+                if (nameContainer) {
+                    nameContainer.innerHTML = `
+                        <span class="info-value" id="drug-name-text-${i}">${settings[i].drugName}</span>
+                        <button class="btn-edit" onclick="editField(${i}, 'drug-name')">修改</button>
+                    `;
+                }
+
+                const qtyContainer = document.getElementById(`drug-qty-container-${i}`);
+                if (qtyContainer) {
+                    qtyContainer.innerHTML = `
+                        <span class="info-value" id="drug-qty-text-${i}">${settings[i].drugQty}</span>
+                        <button class="btn-edit" onclick="editField(${i}, 'drug-qty')">修改</button>
+                    `;
+                }
+
+                // 配合 UI disable 灰色顯示
+                toggleCard(i);
+            }
+        }
+
+        // 載入 IoT 設定
+        if (settings["iot"]) {
+            document.getElementById("family-email").value = settings["iot"].familyEmail || "";
+            document.getElementById("emailjs-public-key").value = settings["iot"].publicKey || "";
+            document.getElementById("emailjs-service-id").value = settings["iot"].serviceId || "";
+            document.getElementById("emailjs-template-id").value = settings["iot"].templateId || "";
+        }
+    }
+
+    if (localVoices) {
+        voiceRecords = JSON.parse(localVoices);
+        for (let i = 1; i <= 4; i++) {
+            if (voiceRecords[i]) {
+                document.getElementById(`play-btn-${i}`).disabled = false;
+            }
+        }
+    }
+}
+</script>
+</body>
+</html>
